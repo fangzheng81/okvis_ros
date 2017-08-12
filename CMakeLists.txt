@@ -110,3 +110,17 @@ target_link_libraries(okvis_node_synchronous ${PROJECT_NAME} )
 add_executable(dataset_convertor src/dataset_convertor.cpp)
 target_link_libraries(dataset_convertor ${PROJECT_NAME} )
 
+# Install targets
+install(TARGETS ${PROJECT_NAME} okvis_node okvis_node_synchronous
+    dataset_convertor
+    ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+    LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+    RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+    )
+
+
+install(DIRECTORY launch config
+    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+
+install(DIRECTORY okvis/config
+    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/okvis)
