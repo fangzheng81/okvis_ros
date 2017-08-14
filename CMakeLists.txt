@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(okvis_ros)
 
-find_package(catkin REQUIRED  
+find_package(catkin REQUIRED
   pcl_conversions
   pcl_ros
   roscpp
@@ -56,8 +56,13 @@ include_directories(
 )
 
 # compile the ROS dependent stuff into a library
-add_definitions(-fPIC -march=native -Wextra -Winit-self -Woverloaded-virtual
+add_definitions(-fPIC -Wextra -Winit-self -Woverloaded-virtual
                 -Wnon-virtual-dtor -Wsign-promo -Wno-long-long -std=c++0x)
+if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm*")
+  # Set custom -m options in toolchain file
+else ()
+  add_definitions(-march=native)
+endif()
 add_library(${PROJECT_NAME} STATIC src/Subscriber.cpp
                                src/Publisher.cpp
                                src/RosParametersReader.cpp
