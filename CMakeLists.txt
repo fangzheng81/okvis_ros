@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(okvis_ros)
 
+if(POLICY CMP0060)
+  # Link libraries by full path even in implicit directories.
+  # Helps with cross-compile build
+  cmake_policy(SET CMP0060 NEW)
+endif()
+
 find_package(catkin REQUIRED
   pcl_conversions
   pcl_ros
@@ -35,7 +41,6 @@ file(MAKE_DIRECTORY ${CATKIN_DEVEL_PREFIX}/include)
 # let's pull in the okvis plain cmake project
 set(BUILD_SHARED_LIBS OFF)
 add_subdirectory(okvis)
-
 
 # libvisensor
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/okvis/cmake")
