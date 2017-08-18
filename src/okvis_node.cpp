@@ -56,6 +56,7 @@
 #include <okvis/Publisher.hpp>
 #include <okvis/RosParametersReader.hpp>
 #include <okvis/ThreadedKFVio.hpp>
+#include <okvis/ImageViewer.hpp>
 
 int main(int argc, char **argv)
 {
@@ -85,9 +86,18 @@ int main(int argc, char **argv)
 
   okvis::ThreadedKFVio okvis_estimator(parameters);
 
+  // viewer (if displayImages enabled)
+  okvis::ImageViewer imageViewer(parameters);
+
   okvis_estimator.setFullStateCallback(std::bind(&okvis::Publisher::publishFullStateAsCallback,&publisher,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4));
   okvis_estimator.setLandmarksCallback(std::bind(&okvis::Publisher::publishLandmarksAsCallback,&publisher,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
   okvis_estimator.setStateCallback(std::bind(&okvis::Publisher::publishStateAsCallback,&publisher,std::placeholders::_1,std::placeholders::_2));
+  if(parameters.publishing.publishImages) {
+    okvis_estimator.setDisplayCallback(std::bind(&okvis::Publisher::publishImagesAsCallback, &publisher,std::placeholders::_1));
+  } else {
+    okvis_estimator.setDisplayCallback(std::bind(&okvis::ImageViewer::saveImagesAsCallback, &imageViewer,std::placeholders::_1));
+  }
+
   publisher.setParameters(parameters); // pass the specified publishing stuff
 
   // subscriber
@@ -95,7 +105,7 @@ int main(int argc, char **argv)
 
   while (ros::ok()) {
     ros::spinOnce();
-	okvis_estimator.display();
+    imageViewer.display();
   }
 
   return 0;

@@ -44,7 +44,7 @@
 #pragma GCC diagnostic ignored "-Wnon-virtual-dtor"
 #include <ros/package.h>
 #pragma GCC diagnostic pop
-#include <sensor_msgs/fill_image.h>
+#include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
 
 #include <okvis/FrameTypedefs.hpp>
@@ -588,6 +588,12 @@ void Publisher::publishLandmarksAsCallback(
   }
 }
 
+// Set and publish images.
+void Publisher::publishImagesAsCallback(const std::vector<cv::Mat> & images) {
+    setImages(images);
+    publishImages();
+}
+
 // Set and write landmarks to file.
 void Publisher::csvSaveLandmarksAsCallback(
     const okvis::Time & /*t*/, const okvis::MapPointVector & actualLandmarks,
@@ -621,10 +627,7 @@ void Publisher::publishPoints()
 // Set the images to be published next.
 void Publisher::setImages(const std::vector<cv::Mat> & images)
 {
-  // copy over
-  images_.resize(images.size());
-  for (size_t i = 0; i < images.size(); ++i)
-    images_[i] = images[i];
+  images_ = images;
 }
 
 // Add a pose to the path that is published next. The path contains a maximum of
@@ -686,15 +689,16 @@ void Publisher::publishImages()
 
   // publish:
   for (size_t i = 0; i < images_.size(); ++i) {
-    sensor_msgs::Image msg;
     std::stringstream cameraNameStream;
     cameraNameStream << "camera_" << i;
-    msg.header.stamp = ros::Time::now();
-    msg.header.frame_id = cameraNameStream.str();
-    sensor_msgs::fillImage(msg, sensor_msgs::image_encodings::MONO8,
-                           images_[i].rows, images_[i].cols,
-                           images_[i].step.buf[0], images_[i].data);
-    pubImagesVector_[i].publish(msg);
+
+    cv_bridge::CvImage cv_image;
+    cv_image.header.stamp = ros::Time::now();
+    cv_image.header.frame_id = cameraNameStream.str();
+    cv_image.image = images_[i];
+    cv_image.encoding = "bgr8";
+
+    pubImagesVector_[i].publish(cv_image.toImageMsg());
   }
 }
 

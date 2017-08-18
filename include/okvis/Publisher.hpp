@@ -204,6 +204,12 @@ class Publisher
       const okvis::MapPointVector & transferredLandmarks);
 
   /**
+   * @brief Set and publish images.
+   * @param images the set of images.
+   */
+  void publishImagesAsCallback(const std::vector<cv::Mat> & images);
+
+  /**
    * @brief Set and write full state to CSV file.
    * @remark This can be registered with the VioInterface.
    * @param t Timestamp of state.
