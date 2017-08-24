@@ -41,6 +41,7 @@
 #include <glog/logging.h>
 #include <okvis/Subscriber.hpp>
 #include <functional>
+#include <eigen_conversions/eigen_msg.h>
 
 #define THRESHOLD_DATA_DELAY_WARNING 0.1 // in seconds
 
@@ -59,6 +60,9 @@ Subscriber::Subscriber(ros::NodeHandle& nh, okvis::VioInterface* vioInterfacePtr
 {
   param_reader.getParameters(vioParameters_);
   imgTransport_ = 0;
+  for (size_t i = 0; i < vioParameters_.nCameraSystem.numCameras(); ++i) {
+    cameraFrames_.push_back("camera" + std::to_string(i));
+  }
   if (param_reader.useDriver) {
 #ifdef HAVE_LIBVISENSOR
     if(param_reader.viSensor != nullptr)
@@ -120,8 +124,16 @@ void Subscriber::imageCallback(const sensor_msgs::ImageConstPtr& msg,/*
   okvis::Time t(msg->header.stamp.sec, msg->header.stamp.nsec);
   t -= okvis::Duration(vioParameters_.sensors_information.imageDelay);
 
-  if (!vioInterface_->addImage(t, cameraIndex, filtered))
+  // Get the current extrinsic transform
+  const auto& T_SC = getT_SC(cameraIndex, msg->header.stamp);
+
+  // Add the image (retruns false if the previous one is still processing)
+  if (!vioInterface_->addImage(t, cameraIndex, filtered, T_SC))
     LOG(WARNING) << "Frame delayed at time "<<t;
+  if (vioParameters_.optimization.useMedianFilter) {
+
+  }
+
 
   // TODO: pass the keypoints...
 }
@@ -135,6 +147,33 @@ void Subscriber::imuCallback(const sensor_msgs::ImuConstPtr& msg)
       Eigen::Vector3d(msg->angular_velocity.x, msg->angular_velocity.y,
                       msg->angular_velocity.z));
 }
+
+std::shared_ptr<const okvis::kinematics::Transformation> Subscriber::getT_SC(
+    unsigned int cameraIndex, const ros::Time& stamp) {
+
+  // First, try to get T_SC from tf2 server
+  try {
+    geometry_msgs::TransformStamped transformStamped;
+    try {
+      transformStamped = tfBuffer_.lookupTransform(cameraFrames_.at(cameraIndex), "imu", stamp);
+    } catch (tf2::ExtrapolationException &e) {
+      // Extrapolation into future error
+      ROS_WARN_STREAM("Caught tf2::ExtrapolationException:" << e.what() << ". Using latest transform.");
+      transformStamped = tfBuffer_.lookupTransform(cameraFrames_.at(cameraIndex), "imu", ros::Time{0});
+    }
+    Eigen::Vector3d r_SC;
+    Eigen::Quaterniond q_SC;
+    tf::vectorMsgToEigen(transformStamped.transform.translation, r_SC);
+    tf::quaternionMsgToEigen(transformStamped.transform.rotation, q_SC);
+
+    return std::make_shared<okvis::kinematics::Transformation>(r_SC, q_SC);
+  } catch (tf2::TransformException &e) {
+    ROS_WARN_STREAM_THROTTLE(5, e.what());
+    // Get T_SC the old way from parameters
+    return vioParameters_.nCameraSystem.T_SC(cameraIndex);
+  }
+}
+
 
 #ifdef HAVE_LIBVISENSOR
 void Subscriber::initialiseDriverCallbacks()

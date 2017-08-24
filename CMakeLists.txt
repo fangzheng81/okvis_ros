@@ -16,6 +16,7 @@ find_package(catkin REQUIRED
   cv_bridge
   dynamic_reconfigure
   geometry_msgs
+  eigen_conversions
   image_geometry
 )
 
