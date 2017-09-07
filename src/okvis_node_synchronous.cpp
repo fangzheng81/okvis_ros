@@ -63,6 +63,7 @@
 #include <okvis/RosParametersReader.hpp>
 #include <okvis/ThreadedKFVio.hpp>
 #include <okvis/ImageViewer.hpp>
+#include "RosbagOdomTracker.hpp"
 
 #include "rosbag/bag.h"
 #include "rosbag/chunked_file.h"
@@ -153,6 +154,10 @@ int main(int argc, char **argv) {
   rosbag::View::iterator view_imu_iterator = view_imu.begin();
   LOG(INFO) << "No. IMU messages: " << view_imu.size();
 
+
+  // Odometry publisher, reads gps topics from bag
+  okvis::RosbagOdomTracker odom_tracker{nh, bag};
+
   std::vector<std::shared_ptr<rosbag::View> > view_cams_ptr;
   std::vector<rosbag::View::iterator> view_cam_iterators;
   std::vector<okvis::Time> times;
@@ -182,23 +187,6 @@ int main(int argc, char **argv) {
   for(size_t i=0; i<numCameras;++i) {
     if ((latest - times[i]).toSec() > 0.01)
       view_cam_iterators[i]++;
-  }
-
-  // Load gps topic to re-publish
-  std::string gps_topic;
-  Eigen::Vector3d utm_datum;
-  ros::Publisher gps_pub;
-  bool use_gps = nh.getParam("gps_topic", gps_topic);
-  rosbag::View view_gps(bag, rosbag::TopicQuery(gps_topic));
-  // Instantiate gps datum
-  std::string utm_zone;
-  if (use_gps) {
-    sensor_msgs::NavSatFixConstPtr msg = view_gps.begin()->instantiate<sensor_msgs::NavSatFix>();
-    double utm_north, utm_east;
-    gps_common::LLtoUTM(msg->latitude, msg->longitude, utm_north, utm_east, utm_zone);
-    utm_datum << utm_north, utm_east, msg->altitude;
-    gps_pub = nh.advertise<geometry_msgs::PointStamped>("gps_point", 10);
-    ROS_INFO_STREAM("Re-publishing gps as world points with UTM datum " << utm_datum.transpose());
   }
 
 
@@ -262,33 +250,8 @@ int main(int argc, char **argv) {
         view_imu_iterator++;
       } while (view_imu_iterator != view_imu.end() && t_imu <= t);
 
-
       // get all gps measurements till last then
-      if (use_gps) {
-        okvis::Time t_gps = start;
-        auto view_gps_iter = view_gps.begin();
-        do {
-          sensor_msgs::NavSatFixConstPtr msg = view_gps_iter->instantiate<sensor_msgs::NavSatFix>();
-          t_gps = okvis::Time(msg->header.stamp.sec, msg->header.stamp.nsec);
-          double utm_north, utm_east;
-          std::string msg_utm_zone;
-          gps_common::LLtoUTM(msg->latitude, msg->longitude, utm_north, utm_east, msg_utm_zone);
-          if (utm_zone != msg_utm_zone)  {
-            ROS_ERROR("The UTM zone changed, I can't handle this.");  // unlikely
-          }
-
-          geometry_msgs::PointStamped point_msg;
-          point_msg.header.stamp = msg->header.stamp;
-          point_msg.point.x = utm_north - utm_datum.x();
-          point_msg.point.y = utm_east - utm_datum.y();
-          point_msg.point.z = msg->altitude - utm_datum.z();
-          point_msg.header.frame_id = "world";
-
-          gps_pub.publish(point_msg);
-
-          view_gps_iter++;
-        } while (t_gps <= t && view_gps_iter != view_gps.end());
-      }
+      odom_tracker.processUpTo(ros::Time(t.sec, t.nsec));
 
       // add the image to the frontend for (blocking) processing
       if (t - start > deltaT)
