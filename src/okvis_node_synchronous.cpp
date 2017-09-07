@@ -140,7 +140,7 @@ int main(int argc, char **argv) {
   // open the bag
   rosbag::Bag bag(argv[2], rosbag::bagmode::Read);
   // views on topics. the slash is needs to be correct, it's ridiculous...
-  std::string imu_topic("/imu0");
+  std::string imu_topic = nh.param<std::string>("imu_topic", "/imu0");
   rosbag::View view_imu(
       bag,
       rosbag::TopicQuery(imu_topic));
@@ -156,7 +156,8 @@ int main(int argc, char **argv) {
   std::vector<okvis::Time> times;
   okvis::Time latest(0);
   for(size_t i=0; i<numCameras;++i) {
-    std::string camera_topic("/cam"+std::to_string(i)+"/image_raw");
+    std::string camera_topic = nh.param<std::string>("camera_topic_" + std::to_string(i),
+                                                     "/cam"+std::to_string(i)+"/image_raw");
     std::shared_ptr<rosbag::View> view_ptr(
         new rosbag::View(
             bag,
