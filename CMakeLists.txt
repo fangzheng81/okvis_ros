@@ -18,6 +18,8 @@ find_package(catkin REQUIRED
   geometry_msgs
   eigen_conversions
   image_geometry
+  tf2
+  tf2_geometry_msgs
 )
 
 # generate dynamic reconfigure stuff
@@ -116,7 +118,7 @@ include_directories(
 # now the actual applications
 add_executable(okvis_node src/okvis_node.cpp )
 target_link_libraries(okvis_node ${PROJECT_NAME} )
-add_executable(okvis_node_synchronous src/okvis_node_synchronous.cpp)
+add_executable(okvis_node_synchronous src/okvis_node_synchronous.cpp src/RosbagOdomTracker.cpp)
 target_link_libraries(okvis_node_synchronous ${PROJECT_NAME} )
 add_executable(dataset_convertor src/dataset_convertor.cpp)
 target_link_libraries(dataset_convertor ${PROJECT_NAME} )
