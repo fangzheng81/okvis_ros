@@ -53,7 +53,6 @@
 #include <okvis_ros/CameraConfig.h> // generated
 #pragma GCC diagnostic pop
 #include <image_transport/image_transport.h>
-#include <tf2_ros/transform_listener.h>
 #include "sensor_msgs/Imu.h"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Woverloaded-virtual"
@@ -118,11 +117,6 @@ class Subscriber
   /// @brief The IMU callback.
   void imuCallback(const sensor_msgs::ImuConstPtr& msg);
 
-  /// @brief Get exterinsics for the given camera and time
-  /// Get them from the tf server, or fall back to parameters
-  std::shared_ptr<const okvis::kinematics::Transformation> getT_SC(
-      unsigned int cameraIndex, const ros::Time& stamp);
-
   /// @}
   /// @name Direct (no ROS) callbacks and other sensor related methods.
   /// @{
@@ -156,9 +150,6 @@ class Subscriber
   image_transport::ImageTransport* imgTransport_; ///< The image transporter.
   std::vector<image_transport::Subscriber> imageSubscribers_; ///< The image message subscriber.
   ros::Subscriber subImu_;  ///< The IMU message subscriber.
-  tf2_ros::Buffer tfBuffer_;
-  tf2_ros::TransformListener tfListener_{tfBuffer_};
-  std::vector<std::string> cameraFrames_; ///< The name of the tf camera frame for each camera index
 
   /// @}
 
