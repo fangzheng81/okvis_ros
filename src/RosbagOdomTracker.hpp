@@ -28,16 +28,17 @@ class RosbagOdomTracker {
   }
 
  protected:
-  tf2::Vector3 utmPoint() const;
-  tf2::Quaternion lastOrientation() const;
-  tf2::Vector3 lastVelocity() const;
+  tf2::Vector3 U_p_UB() const;
+  tf2::Quaternion q_UB() const;
+  tf2::Vector3 U_v_UB() const;
   void publishLatest();
 
   boost::shared_ptr<sensor_msgs::NavSatFix> last_gps_msg;
   boost::shared_ptr<geometry_msgs::QuaternionStamped> last_attitude_msg;
   boost::shared_ptr<geometry_msgs::Vector3Stamped> last_velocity_msg;
 
-  tf2::Transform utm_from_world;
+  tf2::Vector3 U_p_WU;   ///< transform from utm to world
+  tf2::Quaternion q_WU;  ///< transform from utm to world
   std::string utm_zone;
   bool active;
   rosbag::View view;
