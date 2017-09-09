@@ -33,9 +33,11 @@ catkin_package(
 )
 
 # we really want to use Release here
-set(CMAKE_BUILD_TYPE Release)
+IF (NOT CMAKE_BUILD_TYPE)
+  SET(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build" FORCE)
+endif()
 
-message(STATUS "Building with ${CMAKE_BUILD_TYPE}")
+message(STATUS "Building with CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 
 # The configure step fails at catkin_package() if this directory
 # doesn't exist yet. Create it at configure time!
