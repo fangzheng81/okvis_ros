@@ -7,6 +7,7 @@
 #include <geometry_msgs/Vector3Stamped.h>
 #include <nav_msgs/Odometry.h>
 #include <eigen_conversions/eigen_msg.h>
+#include <tf2_ros/transform_broadcaster.h>
 #include <tf2/LinearMath/Transform.h>
 #include <rosbag/view.h>
 
@@ -24,26 +25,29 @@ class RosbagOdomTracker {
   void processUpTo(const ros::Time &t);
 
   bool initialized() const {
-    return active && last_gps_msg && last_attitude_msg && last_velocity_msg;
+    return active && received_gps_msg && received_attitude_msg && received_velocity_msg;
   }
 
  protected:
-  tf2::Vector3 U_p_UB() const;
-  tf2::Quaternion q_UB() const;
-  tf2::Vector3 U_v_UB() const;
   void publishLatest();
 
-  boost::shared_ptr<sensor_msgs::NavSatFix> last_gps_msg;
-  boost::shared_ptr<geometry_msgs::QuaternionStamped> last_attitude_msg;
-  boost::shared_ptr<geometry_msgs::Vector3Stamped> last_velocity_msg;
+  bool received_gps_msg = false;
+  bool received_attitude_msg = false;
+  bool received_velocity_msg = false;
 
   tf2::Vector3 U_p_WU;   ///< transform from utm to world
   tf2::Quaternion q_WU;  ///< transform from utm to world
+
+  tf2::Vector3 last_U_p_UB;
+  tf2::Quaternion last_q_UB;
+  tf2::Vector3 last_U_v_UB;
+
   std::string utm_zone;
   bool active;
   rosbag::View view;
   rosbag::View::iterator view_iter;
   ros::Publisher odom_pub;
+  tf2_ros::TransformBroadcaster tf_pub;
 };
 
 }  // namespace okvis

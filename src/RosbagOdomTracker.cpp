@@ -33,16 +33,20 @@ bool RosbagOdomTracker::consumeGpsMsg(const rosbag::MessageInstance &instance) {
   if (!msg) {
     return false;
   }
+
+  double utm_north, utm_east;
+  gps_common::LLtoUTM(msg->latitude, msg->longitude, utm_north, utm_east, utm_zone);
+  tf2::Vector3 v{utm_east, utm_north, msg->altitude};
+
   // Is this the very first gps message? Set a datum
-  if (!this->last_gps_msg) {
-    double utm_north, utm_east;
-    gps_common::LLtoUTM(msg->latitude, msg->longitude, utm_north, utm_east, utm_zone);
-    tf2::Vector3 v{utm_east, utm_north, msg->altitude};
+  if (!this->received_gps_msg) {
     this->U_p_WU = -v;
     ROS_INFO_STREAM("Set UTM datum " << utm_north << ", " << utm_east << ", " << msg->altitude);
   }
 
-  this->last_gps_msg = msg;
+  this->last_U_p_UB = v;
+
+  this->received_gps_msg = true;
   return true;
 }
 
@@ -54,14 +58,16 @@ bool RosbagOdomTracker::consumeAttitudeMsg(const rosbag::MessageInstance &instan
   }
 
   // Is this the very first attitude message? Set the datum
-  if (!this->last_attitude_msg) {
+  if (!this->received_attitude_msg) {
     // the message is transform from body to ENU ground frame, but at first step world == body
     tf2::Quaternion q_UW;
     tf2::fromMsg(msg->quaternion, q_UW);
     this->q_WU = q_UW.inverse();
   }
 
-  this->last_attitude_msg = msg;
+  tf2::fromMsg(msg->quaternion, this->last_q_UB);
+
+  this->received_attitude_msg = true;
   return true;
 }
 
@@ -71,7 +77,10 @@ bool RosbagOdomTracker::consumeVelocityMsg(const rosbag::MessageInstance &instan
   if (!msg) {
     return false;
   }
-  this->last_velocity_msg = msg;
+
+  tf2::fromMsg(msg->vector, this->last_U_v_UB);
+
+  this->received_velocity_msg = true;
   return true;
 }
 
@@ -88,40 +97,16 @@ void RosbagOdomTracker::processUpTo(const ros::Time &t) {
   }
 }
 
-tf2::Vector3 RosbagOdomTracker::U_p_UB() const {
-  double utm_north, utm_east;
-  std::string msg_utm_zone;
-  gps_common::LLtoUTM(this->last_gps_msg->latitude, last_gps_msg->longitude, utm_north, utm_east, msg_utm_zone);
-  if (utm_zone != msg_utm_zone) {
-    ROS_ERROR("The UTM zone changed; I can't handle this.");  // unlikely
-  }
-
-  return tf2::Vector3{utm_east, utm_north, this->last_gps_msg->altitude};
-}
-
-tf2::Quaternion RosbagOdomTracker::q_UB() const {
-  tf2::Quaternion q_UB;
-  tf2::fromMsg(this->last_attitude_msg->quaternion, q_UB);
-  return q_UB;
-}
-
-
-tf2::Vector3 RosbagOdomTracker::U_v_UB() const {
-  tf2::Vector3 v;
-  tf2::fromMsg(this->last_velocity_msg->vector, v);
-  return v;
-}
-
 void RosbagOdomTracker::publishLatest() {
   if (!this->initialized()) { return; }
 
   nav_msgs::Odometry msg;
   msg.header.frame_id = "world";
-  tf2::Vector3 W_p_WB = tf2::Matrix3x3{this->q_WU} * (this->U_p_WU + this->U_p_UB());
+  tf2::Vector3 W_p_WB = tf2::Matrix3x3{this->q_WU} * (this->U_p_WU + this->last_U_p_UB);
   tf2::toMsg(W_p_WB, msg.pose.pose.position);
-  tf2::Quaternion q_WB = this->q_WU * this->q_UB();
+  tf2::Quaternion q_WB = this->q_WU * this->last_q_UB;
   msg.pose.pose.orientation = tf2::toMsg(q_WB);
-  tf2::Vector3 W_v_WB = tf2::Matrix3x3{this->q_WU}  * this->U_v_UB();
+  tf2::Vector3 W_v_WB = tf2::Matrix3x3{this->q_WU}  * this->last_U_v_UB;
   msg.twist.twist.linear = tf2::toMsg(W_v_WB) ;
 
   this->odom_pub.publish(msg);
