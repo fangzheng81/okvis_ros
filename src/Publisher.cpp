@@ -281,6 +281,9 @@ void Publisher::setOdometry(const okvis::kinematics::Transformation& T_WS,
   // see also nav_msgs/Odometry Message documentation
 
   odometryMsg_.header.stamp = _t;
+  if ((ros::Time::now() - _t).toSec() > 10.0)
+    odometryMsg_.header.stamp = ros::Time::now();
+
   okvis::kinematics::Transformation T; // the pose to be published. T_WS or T_WB depending on 'trackedBodyFrame'
   Eigen::Vector3d omega_W = parameters_.publishing.T_Wc_W.C() * T_WS.C() * omega_S;
   Eigen::Vector3d t_W_ofFrame;  // lever arm in W-system
@@ -668,6 +671,8 @@ void Publisher::setPath(const okvis::kinematics::Transformation &T_WS)
   pose.pose.orientation.w = q.w();
 
   path_.header.stamp = _t;
+  if ((ros::Time::now() - _t).toSec() > 10.0)
+    path_.header.stamp = ros::Time::now();
   path_.header.frame_id = "world";
   path_.poses.push_back(pose);
 }

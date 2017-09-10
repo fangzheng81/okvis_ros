@@ -30,13 +30,17 @@ class RosbagOdomTracker {
 
  protected:
   void publishLatest();
+  void publishTransform();
 
   bool received_gps_msg = false;
   bool received_attitude_msg = false;
   bool received_velocity_msg = false;
 
-  tf2::Vector3 U_p_WU;   ///< transform from utm to world
-  tf2::Quaternion q_WU;  ///< transform from utm to world
+  tf2::Vector3 U_p_LU;   ///< transform from utm to local_map
+  tf2::Quaternion q_WL;  ///< transform from world to local_map
+  tf2::Vector3 W_p_WL{0, 0, 0};  ///< no translation from local_map to world
+  const tf2::Quaternion q_LU = tf2::Quaternion::getIdentity();  ///< no rotation from local_map to utm
+
 
   tf2::Vector3 last_U_p_UB;
   tf2::Quaternion last_q_UB;
