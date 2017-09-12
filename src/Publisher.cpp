@@ -46,6 +46,7 @@
 #pragma GCC diagnostic pop
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
+#include <geometry_msgs/Pose.h>
 #include <eigen_conversions/eigen_msg.h>
 
 #include <okvis/FrameTypedefs.hpp>
@@ -728,7 +729,7 @@ void Publisher::publishExtrinsics(
     for (auto i = 0u; i < T_SCs.size(); ++i) {
       const auto topic_name = "okvis_extrinsics_" + std::to_string(i);
       pubExtrinsicsVector_.emplace_back(
-          nh_->advertise<nav_msgs::Odometry>(topic_name, 10));
+          nh_->advertise<geometry_msgs::PoseStamped>(topic_name, 1));
     }
   }
 
@@ -737,7 +738,7 @@ void Publisher::publishExtrinsics(
 
 
 
-    nav_msgs::Odometry msg;
+    geometry_msgs::PoseStamped msg;
     msg.header.stamp = _t;
     if ((ros::Time::now() - _t).toSec() > 10.0)
       msg.header.stamp = ros::Time::now();
@@ -758,9 +759,8 @@ void Publisher::publishExtrinsics(
       T = *T_SC;
     }
 
-    msg.child_frame_id = "camera_" + std::to_string(i);
-    tf::quaternionEigenToMsg(T.q(), msg.pose.pose.orientation);
-    tf::pointEigenToMsg(T.r(), msg.pose.pose.position);
+    tf::quaternionEigenToMsg(T.q(), msg.pose.orientation);
+    tf::pointEigenToMsg(T.r(), msg.pose.position);
 
     pubExtrinsicsVector_[i].publish(msg);
   }
