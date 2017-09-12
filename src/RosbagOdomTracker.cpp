@@ -85,6 +85,10 @@ bool RosbagOdomTracker::consumeVelocityMsg(const rosbag::MessageInstance &instan
 }
 
 void RosbagOdomTracker::processUpTo(const ros::Time &t) {
+  if (view_iter == this->view.end()) {
+    return;
+  }
+
   ROS_DEBUG_STREAM("Processing up to " << t);
   auto t_msg = view_iter->getTime();
   for (; view_iter->getTime() < t && view_iter != view.end(); ++view_iter) {

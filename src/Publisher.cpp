@@ -46,6 +46,7 @@
 #pragma GCC diagnostic pop
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
+#include <eigen_conversions/eigen_msg.h>
 
 #include <okvis/FrameTypedefs.hpp>
 
@@ -500,11 +501,14 @@ void Publisher::publishStateAsCallback(
   setPose(T_WS);  // TODO: provide setters for this hack
   publishPose();
 }
+
 // Set and publish full state.
-void Publisher::publishFullStateAsCallback(
-    const okvis::Time & t, const okvis::kinematics::Transformation & T_WS,
-    const Eigen::Matrix<double, 9, 1> & speedAndBiases,
-    const Eigen::Matrix<double, 3, 1> & omega_S)
+void Publisher::publishFullStateWithExtrinsicsAsCallback(
+    const okvis::Time &t, const okvis::kinematics::Transformation &T_WS,
+    const Eigen::Matrix<double, 9, 1> &speedAndBiases,
+    const Eigen::Matrix<double, 3, 1> &omega_S,
+    const std::vector<std::shared_ptr<
+        const okvis::kinematics::TransformationBase> > &T_SCs)
 {
   setTime(t);
   setOdometry(T_WS, speedAndBiases, omega_S);  // TODO: provide setters for this hack
@@ -512,6 +516,7 @@ void Publisher::publishFullStateAsCallback(
   publishOdometry();
   publishTransform();
   publishPath();
+  publishExtrinsics(T_SCs);
 }
 
 // Set and write full state to CSV file.
@@ -711,6 +716,55 @@ void Publisher::publishImages()
 void Publisher::publishPath()
 {
   pubPath_.publish(path_);
+}
+
+// Publish extrinsics as odometry messages
+void Publisher::publishExtrinsics(
+    const std::vector<std::shared_ptr<
+        const okvis::kinematics::TransformationBase>> &T_SCs) {
+  // advertise what's been missing:
+  if (T_SCs.size() != pubExtrinsicsVector_.size()) {
+    pubExtrinsicsVector_.clear();
+    for (auto i = 0u; i < T_SCs.size(); ++i) {
+      const auto topic_name = "okvis_extrinsics_" + std::to_string(i);
+      pubExtrinsicsVector_.emplace_back(
+          nh_->advertise<nav_msgs::Odometry>(topic_name, 10));
+    }
+  }
+
+  for (auto i = 0u; i < T_SCs.size(); ++i) {
+    const auto T_SC = T_SCs[i];
+
+
+
+    nav_msgs::Odometry msg;
+    msg.header.stamp = _t;
+    if ((ros::Time::now() - _t).toSec() > 10.0)
+      msg.header.stamp = ros::Time::now();
+
+    okvis::kinematics::Transformation T; // the pose to be published. T_SC or T_BC depending on 'trackedBodyFrame'
+
+    Eigen::Matrix3d C_omega;
+    if (parameters_.publishing.trackedBodyFrame == FrameName::S) {
+      msg.header.frame_id = "sensor";
+      T = *T_SC;
+    } else if (parameters_.publishing.trackedBodyFrame == FrameName::B) {
+      msg.header.frame_id = "body";
+      T = parameters_.imu.T_BS * (*T_SC);
+    } else {
+      LOG(ERROR) <<
+                 "Pose frame does not exist for publishing. Choose 'S' or 'B'.";
+      msg.header.frame_id = "sensor";
+      T = *T_SC;
+    }
+
+    msg.child_frame_id = "camera_" + std::to_string(i);
+    tf::quaternionEigenToMsg(T.q(), msg.pose.pose.orientation);
+    tf::pointEigenToMsg(T.r(), msg.pose.pose.position);
+
+    pubExtrinsicsVector_[i].publish(msg);
+  }
+
 }
 
 }  // namespace okvis

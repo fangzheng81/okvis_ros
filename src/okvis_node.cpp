@@ -89,7 +89,9 @@ int main(int argc, char **argv)
   // viewer (if displayImages enabled)
   okvis::ImageViewer imageViewer(parameters);
 
-  okvis_estimator.setFullStateCallback(std::bind(&okvis::Publisher::publishFullStateAsCallback,&publisher,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4));
+  okvis_estimator.setFullStateCallbackWithExtrinsics(
+      std::bind(&okvis::Publisher::publishFullStateWithExtrinsicsAsCallback,
+                &publisher,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4,std::placeholders::_5));
   okvis_estimator.setLandmarksCallback(std::bind(&okvis::Publisher::publishLandmarksAsCallback,&publisher,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
   okvis_estimator.setStateCallback(std::bind(&okvis::Publisher::publishStateAsCallback,&publisher,std::placeholders::_1,std::placeholders::_2));
   if(parameters.publishing.publishImages) {

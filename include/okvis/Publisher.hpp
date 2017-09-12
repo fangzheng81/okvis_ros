@@ -131,6 +131,13 @@ class Publisher
                    const okvis::SpeedAndBiases& speedAndBiases,
                    const Eigen::Vector3d& omega_S);
 
+  /**
+   * @brief Publish extrinsics as odometry messages
+   * @param T_SCs vector of camera transformations
+   */
+  void publishExtrinsics(const std::vector<std::shared_ptr<const okvis::kinematics::TransformationBase>> &T_SCs);
+
+
   /// \brief Set the parameters
   /// @param parameters The parameters.
   void setParameters(const okvis::VioParameters & parameters){
@@ -187,10 +194,12 @@ class Publisher
    * @param speedAndBiases The speeds and IMU biases.
    * @param omega_S Rotational speed of the sensor frame.
    */
-  void publishFullStateAsCallback(
-      const okvis::Time & t, const okvis::kinematics::Transformation & T_WS,
-      const Eigen::Matrix<double, 9, 1> & speedAndBiases,
-      const Eigen::Matrix<double, 3, 1> & omega_S);
+  void publishFullStateWithExtrinsicsAsCallback(
+      const okvis::Time &t, const okvis::kinematics::Transformation &T_WS,
+      const Eigen::Matrix<double, 9, 1> &speedAndBiases,
+      const Eigen::Matrix<double, 3, 1> &omega_S,
+      const std::vector<std::shared_ptr<
+          const okvis::kinematics::TransformationBase> > &T_SCs);
 
   /**
    * @brief Set and publish landmarks.
@@ -280,6 +289,7 @@ class Publisher
   ros::Publisher pubPath_;  ///< The publisher for the path.
   ros::Publisher pubTransform_; ///< The publisher for the transform.
   ros::Publisher pubMesh_; ///< The publisher for a robot / camera mesh.
+  std::vector<ros::Publisher> pubExtrinsicsVector_; ///< The publisher for the camera extrinsics.
   std::vector<image_transport::Publisher> pubImagesVector_; ///< The publisher for the images.
   std::vector<image_transport::ImageTransport> imageTransportVector_; ///< The image transporters.
 
