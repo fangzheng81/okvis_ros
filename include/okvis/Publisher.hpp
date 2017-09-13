@@ -290,6 +290,7 @@ class Publisher
   ros::Publisher pubTransform_; ///< The publisher for the transform.
   ros::Publisher pubMesh_; ///< The publisher for a robot / camera mesh.
   std::vector<ros::Publisher> pubExtrinsicsVector_; ///< The publisher for the camera extrinsics.
+  ros::Publisher pubGimbalAngles_; ///< The publisher for gimbal angles if any
   std::vector<image_transport::Publisher> pubImagesVector_; ///< The publisher for the images.
   std::vector<image_transport::ImageTransport> imageTransportVector_; ///< The image transporters.
 

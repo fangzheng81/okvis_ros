@@ -113,6 +113,8 @@ void Publisher::setNodeHandle(ros::NodeHandle& nh)
     LOG(INFO) << "no mesh found for visualisation, set ros param mesh_file, if desired";
     meshMsg_.mesh_resource = "";
   }
+  // @todo use more suitable non-generic message
+  pubGimbalAngles_ = nh_->advertise<geometry_msgs::Vector3>("gimbal_angles", 1);
 }
 
 // Write CSV header.
@@ -734,9 +736,7 @@ void Publisher::publishExtrinsics(
   }
 
   for (auto i = 0u; i < T_SCs.size(); ++i) {
-    const auto T_SC = T_SCs[i];
-
-
+    const auto &T_SC = T_SCs[i];
 
     geometry_msgs::PoseStamped msg;
     msg.header.stamp = _t;
@@ -763,8 +763,19 @@ void Publisher::publishExtrinsics(
     tf::pointEigenToMsg(T.r(), msg.pose.position);
 
     pubExtrinsicsVector_[i].publish(msg);
-  }
 
+    // Publish joint angles if possible
+    auto T_SC_as_gimbal = std::dynamic_pointer_cast<const okvis::kinematics::GimbalTransformation<2>>(T_SC);
+    if(T_SC_as_gimbal) {
+      const auto thetas = T_SC_as_gimbal->parameters();
+      geometry_msgs::Vector3 gimbal_msg;
+      // @todo use more suitable message
+      gimbal_msg.x = thetas[0];
+      gimbal_msg.y = thetas[1];
+      gimbal_msg.z = 0;
+      pubGimbalAngles_.publish(gimbal_msg);
+    }
+  }
 }
 
 }  // namespace okvis
