@@ -23,7 +23,7 @@ RosbagOdomTracker::RosbagOdomTracker(ros::NodeHandle &nh, rosbag::Bag &bag) {
   this->view.addQuery(bag, rosbag::TopicQuery(velocity_topic));
   this->view_iter = this->view.begin();
 
-  this->odom_pub = nh.advertise<nav_msgs::Odometry>("odom", 10);
+  this->odom_pub = nh.advertise<nav_msgs::Odometry>("gps_odom", 10);
 
 }
 
