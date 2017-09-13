@@ -111,8 +111,8 @@ void RosbagOdomTracker::publishLatest() {
   msg.header.frame_id = "local_map";
   msg.child_frame_id = "body";
 
-  tf2::Vector3 W_p_LB = tf2::Matrix3x3{this->q_LU} * (this->U_p_LU + this->last_U_p_UB);
-  tf2::toMsg(W_p_LB, msg.pose.pose.position);
+  tf2::Vector3 L_p_LB = tf2::Matrix3x3{this->q_LU} * (this->U_p_LU + this->last_U_p_UB);
+  tf2::toMsg(L_p_LB, msg.pose.pose.position);
 
   tf2::Quaternion q_LB = this->q_LU * this->last_q_UB;
   msg.pose.pose.orientation = tf2::toMsg(q_LB);
