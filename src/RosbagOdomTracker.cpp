@@ -44,6 +44,13 @@ RosbagOdomTracker::RosbagOdomTracker(ros::NodeHandle &nh, rosbag::Bag &bag) {
   this->odom_pub = nh.advertise<nav_msgs::Odometry>("gps_odom", 10);
   this->gimbal_pub = nh.advertise<geometry_msgs::Vector3>("ref_gimbal_angles", 10);
 
+  if(this->republish && res) {
+    this->gps_repub = nh.advertise<sensor_msgs::NavSatFix>(gps_topic, 10);
+    this->attitude_repub = nh.advertise<geometry_msgs::QuaternionStamped>(attitude_topic, 10);
+    this->velocity_repub = nh.advertise<geometry_msgs::Vector3Stamped>(velocity_topic, 10);
+    this->gimbal_repub = nh.advertise<geometry_msgs::Quaternion>(gimbal_topic, 10);
+  }
+
 }
 
 bool RosbagOdomTracker::consumeGpsMsg(const rosbag::MessageInstance &instance) {
@@ -51,6 +58,9 @@ bool RosbagOdomTracker::consumeGpsMsg(const rosbag::MessageInstance &instance) {
   auto msg = instance.instantiate<sensor_msgs::NavSatFix>();
   if (!msg) {
     return false;
+  }
+  if(this->republish) {
+    this->gps_repub.publish(msg);
   }
 
   double utm_north, utm_east;
@@ -74,6 +84,9 @@ bool RosbagOdomTracker::consumeAttitudeMsg(const rosbag::MessageInstance &instan
   auto msg = instance.instantiate<geometry_msgs::QuaternionStamped>();
   if (!msg) {
     return false;
+  }
+  if(this->republish) {
+    this->attitude_repub.publish(msg);
   }
 
   tf2::Quaternion q_LB;
@@ -108,6 +121,9 @@ bool RosbagOdomTracker::consumeVelocityMsg(const rosbag::MessageInstance &instan
   if (!msg) {
     return false;
   }
+  if(this->republish) {
+    this->velocity_repub.publish(msg);
+  }
 
   tf2::fromMsg(msg->vector, this->last_U_v_UB);
 
@@ -120,6 +136,9 @@ bool RosbagOdomTracker::consumeGimbalMsg(const rosbag::MessageInstance &instance
   auto msg = instance.instantiate<geometry_msgs::Quaternion>();
   if (!msg) {
     return false;
+  }
+  if(this->republish) {
+    this->gimbal_repub.publish(msg);
   }
 
   tf2::Quaternion q_BG;
@@ -140,7 +159,8 @@ void RosbagOdomTracker::processUpTo(const ros::Time &t) {
   ROS_DEBUG_STREAM("Processing up to " << t);
   auto t_msg = view_iter->getTime();
   for (; view_iter->getTime() < t && view_iter != view.end(); ++view_iter) {
-    // Consume the message as only one of the following:
+    // Consume the message as only one of the following
+    // (topics are differentiated by message type - if multiple topics share the same type it will require refactoring)
     this->consumeGpsMsg(*view_iter);
     this->consumeAttitudeMsg(*view_iter);
     this->consumeVelocityMsg(*view_iter);

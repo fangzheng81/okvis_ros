@@ -56,6 +56,12 @@ class RosbagOdomTracker {
   ros::Publisher odom_pub;
   ros::Publisher gimbal_pub;
   tf2_ros::TransformBroadcaster tf_pub;
+
+  const bool republish = true;  ///< publish all the gps messages directly
+  ros::Publisher gps_repub;
+  ros::Publisher attitude_repub;
+  ros::Publisher velocity_repub;
+  ros::Publisher gimbal_repub;
 };
 
 }  // namespace okvis
