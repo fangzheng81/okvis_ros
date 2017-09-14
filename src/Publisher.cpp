@@ -769,7 +769,7 @@ void Publisher::publishExtrinsics(
     if(T_SC_as_gimbal) {
       const auto thetas = T_SC_as_gimbal->parameters();
       geometry_msgs::Vector3 gimbal_msg;
-      // Publish them as RPY
+      // Publish them as Roll-Pitch-Yaw
       gimbal_msg.x = thetas[0];
       gimbal_msg.y = thetas[1];
       gimbal_msg.z = 0;

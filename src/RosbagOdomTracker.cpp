@@ -28,6 +28,17 @@ RosbagOdomTracker::RosbagOdomTracker(ros::NodeHandle &nh, rosbag::Bag &bag) {
     ROS_WARN("Not publishing reference gimbal angles");
   }
 
+
+  std::vector<double> rpy_WL;
+  if(nh.getParam("rpy_WL", rpy_WL)) {
+    if (rpy_WL.size() == 3) {
+      this->override_q_WL = true;
+      this->q_WL.setRPY(rpy_WL[0], rpy_WL[1], rpy_WL[2]);
+    } else {
+      ROS_WARN("Invalid rpy_WL provided");
+    }
+  }
+
   this->view_iter = this->view.begin();
 
   this->odom_pub = nh.advertise<nav_msgs::Odometry>("gps_odom", 10);
@@ -70,9 +81,20 @@ bool RosbagOdomTracker::consumeAttitudeMsg(const rosbag::MessageInstance &instan
 
   // Is this the very first attitude message? Set the datum
   if (!this->received_attitude_msg) {
-    // the message is transform from body to ENU ground frame, but at first step world == body
-    const auto &q_LW = q_LB;
-    this->q_WL = q_LW.inverse();
+    if(this->override_q_WL) {
+      double r, p, y;
+      tf2::Matrix3x3{this->q_WL}.getRPY(r, p, y);
+
+      double r2, p2, y2;
+      tf2::Matrix3x3{q_LB}.getRPY(r2, p2, y2);
+      ROS_WARN_STREAM("Using custom orientation WL: RPY ("
+                          << r << "," << p << "," << y << ") instead of ("
+                          << r2 << "," <<  p2 << "," << y2 << ") radians");
+    } else {
+      // the message is transform from body to ENU ground frame, but at first step world == body
+      const auto &q_LW = q_LB;
+      this->q_WL = q_LW.inverse();
+    }
   }
 
   this->last_q_LB = q_LB;
@@ -102,8 +124,8 @@ bool RosbagOdomTracker::consumeGimbalMsg(const rosbag::MessageInstance &instance
 
   tf2::Quaternion q_BG;
   tf2::fromMsg(*msg, q_BG);
-  double y, p, r;
-  tf2::Matrix3x3{q_BG}.getEulerYPR(y, p, r);
+  double r, p, y;
+  tf2::Matrix3x3{q_BG}.getRPY(r, p, y);
   this->last_gimbal_rpy = tf2::Vector3{r, p, y};
 
   this->received_gimbal_msg = true;

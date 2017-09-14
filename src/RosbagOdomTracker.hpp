@@ -37,6 +37,7 @@ class RosbagOdomTracker {
   bool received_attitude_msg = false;
   bool received_velocity_msg = false;
   bool received_gimbal_msg = false;
+  bool override_q_WL = false;
 
   tf2::Vector3 U_p_LU;   ///< transform from utm to local_map
   tf2::Quaternion q_WL;  ///< transform from world to local_map
@@ -45,7 +46,7 @@ class RosbagOdomTracker {
 
 
   tf2::Vector3 last_U_p_UB;
-  tf2::Quaternion last_q_LB;
+  tf2::Quaternion last_q_LB = tf2::Quaternion::getIdentity();
   tf2::Vector3 last_U_v_UB;
   tf2::Vector3 last_gimbal_rpy;
 
