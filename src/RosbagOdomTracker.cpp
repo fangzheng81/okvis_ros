@@ -7,23 +7,31 @@ namespace okvis {
 RosbagOdomTracker::RosbagOdomTracker(ros::NodeHandle &nh, rosbag::Bag &bag) {
   odom_pub = nh.advertise<nav_msgs::Odometry>("reference_odom", 10);
 
-  std::string gps_topic, attitude_topic, velocity_topic;
-  this->active = nh.getParam("gps_topic", gps_topic);
-  this->active *= nh.getParam("attitude_topic", attitude_topic);
-  this->active *= nh.getParam("velocity_topic", velocity_topic);
+  std::string gps_topic, attitude_topic, velocity_topic, gimbal_topic;
+  bool res = nh.getParam("gps_topic", gps_topic);
+  res *= nh.getParam("attitude_topic", attitude_topic);
+  res *= nh.getParam("velocity_topic", velocity_topic);
 
-  if (active) {
+  if (res) {
     ROS_INFO("Reading gps messages and publishing odometry");
+    this->view.addQuery(bag, rosbag::TopicQuery(gps_topic));
+    this->view.addQuery(bag, rosbag::TopicQuery(attitude_topic));
+    this->view.addQuery(bag, rosbag::TopicQuery(velocity_topic));
   } else {
-    ROS_INFO("Not publishing odometry since not all of (gps_topic, attitude_topic, velocity_topic) are set");
+    ROS_WARN("Not publishing odometry since not all of (gps_topic, attitude_topic, velocity_topic) are set");
   }
 
-  this->view.addQuery(bag, rosbag::TopicQuery(gps_topic));
-  this->view.addQuery(bag, rosbag::TopicQuery(attitude_topic));
-  this->view.addQuery(bag, rosbag::TopicQuery(velocity_topic));
+  if(nh.getParam("gimbal_topic", gimbal_topic)) {
+    ROS_INFO_STREAM("Reading gimbal orientation from " << gimbal_topic);
+    this->view.addQuery(bag, rosbag::TopicQuery(gimbal_topic));
+  } else {
+    ROS_WARN("Not publishing reference gimbal angles");
+  }
+
   this->view_iter = this->view.begin();
 
   this->odom_pub = nh.advertise<nav_msgs::Odometry>("gps_odom", 10);
+  this->gimbal_pub = nh.advertise<geometry_msgs::Vector3>("ref_gimbal_angles", 10);
 
 }
 
@@ -85,6 +93,23 @@ bool RosbagOdomTracker::consumeVelocityMsg(const rosbag::MessageInstance &instan
   return true;
 }
 
+bool RosbagOdomTracker::consumeGimbalMsg(const rosbag::MessageInstance &instance) {
+  // Try to read Quaternions message or return null if incompatible
+  auto msg = instance.instantiate<geometry_msgs::Quaternion>();
+  if (!msg) {
+    return false;
+  }
+
+  tf2::Quaternion q_BG;
+  tf2::fromMsg(*msg, q_BG);
+  double y, p, r;
+  tf2::Matrix3x3{q_BG}.getEulerYPR(y, p, r);
+  this->last_gimbal_rpy = tf2::Vector3{r, p, y};
+
+  this->received_gimbal_msg = true;
+  return true;
+}
+
 void RosbagOdomTracker::processUpTo(const ros::Time &t) {
   if (view_iter == this->view.end()) {
     return;
@@ -97,6 +122,7 @@ void RosbagOdomTracker::processUpTo(const ros::Time &t) {
     this->consumeGpsMsg(*view_iter);
     this->consumeAttitudeMsg(*view_iter);
     this->consumeVelocityMsg(*view_iter);
+    this->consumeGimbalMsg(*view_iter);
 
     publishTransform();
     publishLatest();
@@ -104,24 +130,31 @@ void RosbagOdomTracker::processUpTo(const ros::Time &t) {
 }
 
 void RosbagOdomTracker::publishLatest() {
-  if (!this->initialized()) { return; }
+  if (this->initialized()) {
 
     // publish odometry message: local_map to body
-  nav_msgs::Odometry msg;
-  msg.header.stamp = ros::Time::now();
-  msg.header.frame_id = "local_map";
-  msg.child_frame_id = "body";
+    nav_msgs::Odometry msg;
+    msg.header.stamp = ros::Time::now();
+    msg.header.frame_id = "local_map";
+    msg.child_frame_id = "body";
 
-  tf2::Vector3 L_p_LB = tf2::Matrix3x3{this->q_LU} * (this->U_p_LU + this->last_U_p_UB);
-  tf2::toMsg(L_p_LB, msg.pose.pose.position);
+    tf2::Vector3 L_p_LB = tf2::Matrix3x3{this->q_LU} * (this->U_p_LU + this->last_U_p_UB);
+    tf2::toMsg(L_p_LB, msg.pose.pose.position);
 
-  tf2::Quaternion q_LB = this->last_q_LB;
-  msg.pose.pose.orientation = tf2::toMsg(q_LB);
+    tf2::Quaternion q_LB = this->last_q_LB;
+    msg.pose.pose.orientation = tf2::toMsg(q_LB);
 
-  const auto U_v_LU = tf2::Vector3{0, 0, 0};
-  tf2::Vector3 L_v_LB = tf2::Matrix3x3{this->q_LU}  * (U_v_LU + this->last_U_v_UB);
-  msg.twist.twist.linear = tf2::toMsg(L_v_LB) ;
-  this->odom_pub.publish(msg);
+    const auto U_v_LU = tf2::Vector3{0, 0, 0};
+    tf2::Vector3 L_v_LB = tf2::Matrix3x3{this->q_LU} * (U_v_LU + this->last_U_v_UB);
+    msg.twist.twist.linear = tf2::toMsg(L_v_LB);
+    this->odom_pub.publish(msg);
+  }
+
+  // Publish gimbal angles as RPY
+  if(this->received_gimbal_msg) {
+    auto gimbal_msg = tf2::toMsg(this->last_gimbal_rpy);
+    this->gimbal_pub.publish(gimbal_msg);
+  }
 }
 
 void RosbagOdomTracker::publishTransform() {

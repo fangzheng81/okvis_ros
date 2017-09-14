@@ -769,7 +769,7 @@ void Publisher::publishExtrinsics(
     if(T_SC_as_gimbal) {
       const auto thetas = T_SC_as_gimbal->parameters();
       geometry_msgs::Vector3 gimbal_msg;
-      // @todo use more suitable message
+      // Publish them as RPY
       gimbal_msg.x = thetas[0];
       gimbal_msg.y = thetas[1];
       gimbal_msg.z = 0;

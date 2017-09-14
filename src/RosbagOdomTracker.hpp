@@ -21,11 +21,12 @@ class RosbagOdomTracker {
   bool consumeGpsMsg(const rosbag::MessageInstance &instance);
   bool consumeAttitudeMsg(const rosbag::MessageInstance &instance);
   bool consumeVelocityMsg(const rosbag::MessageInstance &instance);
+  bool consumeGimbalMsg(const rosbag::MessageInstance &instance);
 
   void processUpTo(const ros::Time &t);
 
   bool initialized() const {
-    return active && received_gps_msg && received_attitude_msg && received_velocity_msg;
+    return received_gps_msg && received_attitude_msg && received_velocity_msg;
   }
 
  protected:
@@ -35,6 +36,7 @@ class RosbagOdomTracker {
   bool received_gps_msg = false;
   bool received_attitude_msg = false;
   bool received_velocity_msg = false;
+  bool received_gimbal_msg = false;
 
   tf2::Vector3 U_p_LU;   ///< transform from utm to local_map
   tf2::Quaternion q_WL;  ///< transform from world to local_map
@@ -45,12 +47,13 @@ class RosbagOdomTracker {
   tf2::Vector3 last_U_p_UB;
   tf2::Quaternion last_q_LB;
   tf2::Vector3 last_U_v_UB;
+  tf2::Vector3 last_gimbal_rpy;
 
   std::string utm_zone;
-  bool active;
   rosbag::View view;
   rosbag::View::iterator view_iter;
   ros::Publisher odom_pub;
+  ros::Publisher gimbal_pub;
   tf2_ros::TransformBroadcaster tf_pub;
 };
 
