@@ -57,16 +57,17 @@ bool RosbagOdomTracker::consumeAttitudeMsg(const rosbag::MessageInstance &instan
     return false;
   }
 
+  tf2::Quaternion q_LB;
+  tf2::fromMsg(msg->quaternion, q_LB);
+
   // Is this the very first attitude message? Set the datum
   if (!this->received_attitude_msg) {
     // the message is transform from body to ENU ground frame, but at first step world == body
-    tf2::Quaternion q_UW;
-    tf2::fromMsg(msg->quaternion, q_UW);
-    this->q_WL = q_UW.inverse();
+    const auto &q_LW = q_LB;
+    this->q_WL = q_LW.inverse();
   }
 
-  tf2::fromMsg(msg->quaternion, this->last_q_UB);
-
+  this->last_q_LB = q_LB;
   this->received_attitude_msg = true;
   return true;
 }
@@ -114,7 +115,7 @@ void RosbagOdomTracker::publishLatest() {
   tf2::Vector3 L_p_LB = tf2::Matrix3x3{this->q_LU} * (this->U_p_LU + this->last_U_p_UB);
   tf2::toMsg(L_p_LB, msg.pose.pose.position);
 
-  tf2::Quaternion q_LB = this->q_LU * this->last_q_UB;
+  tf2::Quaternion q_LB = this->last_q_LB;
   msg.pose.pose.orientation = tf2::toMsg(q_LB);
 
   const auto U_v_LU = tf2::Vector3{0, 0, 0};

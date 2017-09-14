@@ -43,7 +43,7 @@ class RosbagOdomTracker {
 
 
   tf2::Vector3 last_U_p_UB;
-  tf2::Quaternion last_q_UB;
+  tf2::Quaternion last_q_LB;
   tf2::Vector3 last_U_v_UB;
 
   std::string utm_zone;
